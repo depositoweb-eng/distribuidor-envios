@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Distribuidor de Envíos — New Garden</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f0f0f0; min-height: 100vh; }
+
+/* HEADER */
+#header {
+  background: #1a5c2a; color: white;
+  padding: 13px 22px; display: flex; align-items: center;
+  gap: 14px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+#header h1 { font-size: 16px; flex: 1; }
+.hbtn {
+  background: white; color: #1a5c2a; border: none;
+  padding: 7px 14px; border-radius: 5px; font-weight: bold;
+  cursor: pointer; font-size: 12px; white-space: nowrap;
+}
+.hbtn:hover { background: #d4edda; }
+.hbtn:disabled { opacity: 0.35; cursor: default; }
+.hbtn-hugo   { background: #d0eaff; color: #0d47a1; }
+.hbtn-hugo:hover   { background: #b3d9ff; }
+.hbtn-rueddo { background: #ffe0cc; color: #bf360c; }
+.hbtn-rueddo:hover { background: #ffc9a8; }
+#header input[type=file] { display: none; }
+#hstatus { font-size: 12px; opacity: 0.85; }
+
+/* TOOLBAR */
+#toolbar {
+  background: #f7f7f7; border-bottom: 1px solid #ddd;
+  padding: 9px 22px; display: flex; gap: 10px; align-items: center;
+  flex-wrap: wrap; font-size: 13px;
+}
+#toolbar label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; }
+#searchBox {
+  padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px;
+  font-size: 12px; width: 190px;
+}
+.tab-btn {
+  padding: 4px 12px; border-radius: 4px; font-size: 12px;
+  cursor: pointer; border: 1px solid #ccc; background: white; font-weight: bold;
+}
+.tab-btn.active-all   { background: #1a5c2a; color: white; border-color: #1a5c2a; }
+.tab-btn.active-hugo  { background: #0d47a1; color: white; border-color: #0d47a1; }
+.tab-btn.active-rueddo{ background: #bf360c; color: white; border-color: #bf360c; }
+.tab-btn.active-sin   { background: #555;    color: white; border-color: #555; }
+#counter { margin-left: auto; font-size: 12px; color: #555; }
+
+/* TABLA */
+#tableWrap {
+  padding: 14px 22px; 
+}
+table {
+  width: 100%; border-collapse: collapse; background: white;
+  font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+thead th {
+  background: #1a5c2a; color: white; padding: 9px 10px;
+  text-align: left; white-space: nowrap; font-size: 11px;
+  border-bottom: 2px solid #11401d; 
+}
+thead th.th-hugo   { background: #0d47a1; border-bottom-color: #082e6b; }
+thead th.th-rueddo { background: #bf360c; border-bottom-color: #822407; }
+thead th.th-cp     { background: #333;    border-bottom-color: #111; }
+tbody tr { border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.1s; }
+tbody tr:hover { background: #fafafa; }
+tbody tr.selected { background: #e8f5e9; }
+tbody tr.done { opacity: 0.45; }
+td { padding: 7px 10px; vertical-align: middle; }
+td.td-check { width: 32px; text-align: center; }
+td input[type=checkbox] { width: 15px; height: 15px; accent-color: #1a5c2a; cursor: pointer; }
+
+/* Badges de chofer */
+.badge {
+  display: inline-block; font-size: 10px; font-weight: bold;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.badge-hugo   { background: #d0eaff; color: #0d47a1; }
+.badge-rueddo { background: #ffe0cc; color: #bf360c; }
+.badge-sin    { background: #eee;    color: #777; }
+.badge-proc   { background: #c8f7d4; color: #155724; }
+
+/* Selector rápido */
+.sel-bar {
+  padding: 6px 22px 0; display: flex; gap: 10px; align-items: center;
+  font-size: 12px; color: #555; flex-wrap: wrap;
+}
+.sel-bar a { color: #1a5c2a; cursor: pointer; text-decoration: underline; }
+
+/* Empty */
+#emptyState {
+  text-align: center; padding: 60px 20px; color: #aaa;
+  font-size: 15px; display: block;
+}
+
+/* Modal confirmación */
+#overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45); z-index: 200;
+  align-items: center; justify-content: center;
+}
+#overlay.show { display: flex; }
+#modal {
+  background: white; border-radius: 10px; padding: 24px 28px;
+  max-width: 520px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+#modal h2 { font-size: 16px; margin-bottom: 10px; }
+#modal p  { font-size: 13px; color: #555; margin-bottom: 4px; line-height: 1.5; }
+.modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-btns button { padding: 8px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; }
+#modalCancel { background: #eee; color: #333; }
+#modalOk     { background: #1a5c2a; color: white; }
+
+/* Filas de fecha en modal */
+.date-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px;
+}
+.date-row:last-child { border-bottom: none; }
+.date-row-name { flex: 1; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.date-row-track { color: #999; font-size: 10px; min-width: 80px; }
+.date-row input[type=date] {
+  padding: 4px 7px; border: 1px solid #ccc; border-radius: 4px;
+  font-size: 12px; width: 140px;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>📦 Distribuidor de Envíos — New Garden</h1>
+  <label class="hbtn" for="csvFile">📂 Cargar Archivo</label>
+  <input type="file" id="csvFile" accept=".csv, .xlsx, .xls">
+  <button class="hbtn" id="btnSelAll">☑ Todos</button>
+  <button class="hbtn" id="btnSelNone">☐ Ninguno</button>
+  <button class="hbtn hbtn-hugo"   id="btnDlHugo"   disabled>⬇ Excel HUGO</button>
+  <button class="hbtn hbtn-rueddo" id="btnDlRueddo" disabled>⬇ Excel RUEDDO</button>
+  <button class="hbtn" id="btnClear" style="background:#fde8e8;color:#c0392b">🗑 Limpiar memoria</button>
+  <span id="hstatus">Cargá un archivo para comenzar</span>
+</div>
+
+<div id="toolbar" style="display:none">
+  <button class="tab-btn active-all" id="tabAll"   onclick="setTab('all')">Todos</button>
+  <button class="tab-btn" id="tabHugo"   onclick="setTab('hugo')">🔵 Hugo</button>
+  <button class="tab-btn" id="tabRueddo" onclick="setTab('rueddo')">🟠 Rueddo</button>
+  <button class="tab-btn" id="tabSin"    onclick="setTab('sin')">⚫ Sin asignar</button>
+  <button class="tab-btn" id="tabProc"   onclick="setTab('proc')">✓ Procesados</button>
+  <input type="text" id="searchBox" placeholder="Buscar nombre o tracking…">
+  <span id="counter"></span>
+</div>
+
+<div class="sel-bar" id="selBar" style="display:none">
+  <span id="selCount">0 seleccionados</span>
+  <a id="aSelAll">Seleccionar todos</a>
+  <a id="aSelHugo">Solo Hugo</a>
+  <a id="aSelRueddo">Solo Rueddo</a>
+  <a id="aSelNuevos">Solo nuevos</a>
+  <a id="aSelNone">Ninguno</a>
+</div>
+
+<div id="tableWrap">
+  <div id="emptyState">Cargá un archivo de Excel (.xlsx) o CSV para ver los envíos y distribuirlos.</div>
+  <table id="mainTable" style="display:none">
+    <thead>
+      <tr>
+        <th class="td-check"><input type="checkbox" id="chkAll"></th>
+        <th>Tracking</th>
+        <th>Destinatario</th>
+        <th class="th-cp">CP</th>
+        <th>Localidad</th>
+        <th>Dirección</th>
+        <th>Fecha</th>
+        <th class="th-hugo">HUGO</th>
+        <th class="th-rueddo">RUEDDO</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<!-- LIBRERÍA LIGERA DE EXCEL CARGADA DESDE INTERNET -->
+<script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js"></script>
+
+<!-- Modal confirmación + editor de fechas -->
+<div id="overlay">
+  <div id="modal">
+    <h2 id="modalTitle"></h2>
+    <p id="modalBody"></p>
+
+    <div id="dateEditor" style="margin:14px 0 6px">
+      <div style="font-size:12px;font-weight:bold;color:#333;margin-bottom:8px">
+        ✏️ Editá las fechas antes de descargar
+      </div>
+      <div id="dateRows" style="max-height:240px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:5px"></div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:14px">
+      <button id="modalCancel">Cancelar</button>
+      <button id="modalOk">⬇ Descargar y marcar como procesados</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Utilidades de formateo y validación ───────────────────────────────────────
+function fmtV(v) { 
+  if (v === undefined || v === null) return '-';
+  const s = String(v).trim();
+  return (s === '-' || s === '') ? '-' : s;
+}
+
+function trackingOf(r) { return fmtV(r['Numero de tracking']); }
+function cpOf(r) { return parseInt(fmtV(r['Código postal']).replace(/\D/g, '')) || 0; }
+function choferAuto(r) { return HUGO_CPS.has(cpOf(r)) ? 'hugo' : 'rueddo'; }
+
+// ── Estado ────────────────────────────────────────────────────────────────────
+let allRows      = [];
+let processedMap = {};
+let selectedSet  = new Set();
+let currentTab   = 'all';
+let searchQuery  = '';
+
+// ── Ajustar sticky top ────────────────────────────────────────────────────────
+function fixStickyHeader() {
+  const header  = document.getElementById('header');
+  const toolbar = document.getElementById('toolbar');
+  const selBar  = document.getElementById('selBar');
+  
+  let currentTop = 0;
+  if (header && header.offsetHeight) {
+    header.style.position = 'sticky'; header.style.top = currentTop + 'px'; header.style.zIndex = '100';
+    currentTop += header.offsetHeight;
+  }
+  if (toolbar && toolbar.style.display !== 'none') {
+    toolbar.style.position = 'sticky'; toolbar.style.top = currentTop + 'px'; toolbar.style.zIndex = '99';
+    currentTop += toolbar.offsetHeight;
+  }
+  if (selBar && selBar.style.display !== 'none') {
+    selBar.style.position = 'sticky'; selBar.style.top = currentTop + 'px'; selBar.style.zIndex = '98';
+    selBar.style.background = '#f0f0f0'; selBar.style.paddingBottom = '6px';
+    currentTop += selBar.offsetHeight;
+  }
+  document.querySelectorAll('thead th').forEach(th => {
+    th.style.position = 'sticky'; th.style.top = currentTop + 'px'; th.style.zIndex = '90';
+  });
+}
+
+// ── CP de HUGO ────────────────────────────────────────────────────────────────
+const HUGO_CPS = new Set([
+  1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1011,1012,1013,1014,1015,
+  1016,1017,1018,1019,1020,1021,1022,1023,1024,1025,1026,1027,1028,1029,1030,
+  1031,1032,1033,1034,1035,1036,1037,1038,1039,1040,1041,1042,1043,1044,1045,
+  1046,1047,1048,1049,1050,1051,1052,1053,1054,1055,1056,1057,1058,1059,1060,
+  1061,1062,1067,1072,1079,1080,1081,1082,1083,1084,1085,1086,1087,1088,1089,
+  1090,1091,1092,1093,1094,1095,1096,1097,1104,1106,1107,1108,1110,1111,1112,
+  1113,1114,1115,1116,1117,1118,1119,1120,1121,1122,1123,1124,1125,1126,1127,
+  1128,1129,1170,1171,1172,1173,1174,1175,1176,1177,1179,1180,1181,1182,1183,
+  1184,1186,1187,1188,1189,1190,1191,1192,1193,1194,1195,1196,1197,1198,1200,
+  1201,1202,1203,1204,1207,1209,1210,1211,1212,1213,1214,1215,1223,1224,1405,
+  1414,1416,1417,1419,1424,1425,1426,1427,1428,1429,1430,1431
+]);
+
+// ── IndexedDB para memoria ────────────────────────────────────────────────────
+const DB_NAME = 'ng_distribuidor', STORE = 'processed';
+let db = null;
+function openDB() {
+  return new Promise((res,rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore(STORE, { keyPath: 'id' });
+    r.onsuccess = e => { db = e.target.result; res(); };
+    r.onerror = e => rej(e);
+  });
+}
+function dbGetAll() {
+  return new Promise((res,rej) => {
+    const r = db.transaction(STORE,'readonly').objectStore(STORE).getAll();
+    r.onsuccess = () => res(r.result); 
+    r.onerror = e => rej(e);
+  });
+}
+function dbSave(entries) {
+  return new Promise((res,rej) => {
+    const tx = db.transaction(STORE,'readwrite'), st = tx.objectStore(STORE);
+    entries.forEach(e => st.put(e));
+    tx.oncomplete = res; tx.onerror = e => rej(e);
+  });
+}
+function dbClear() {
+  return new Promise((res,rej) => {
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = res; tx.onerror = e => rej(e);
+  });
+}
+
+// ── Render tabla ──────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  const search = searchQuery;
+  const filtered = allRows.filter(row => {
+    const t   = trackingOf(row);
+    const pm  = processedMap[t];
+    const chofer = pm ? pm.chofer : choferAuto(row);
+    const done   = pm && pm.downloaded;
+    const dest   = fmtV(row['Destinatario']).toLowerCase();
+
+    const matchTab =
+      currentTab === 'all'    ||
+      (currentTab === 'hugo'   && chofer === 'hugo'   && !done) ||
+      (currentTab === 'rueddo' && chofer === 'rueddo' && !done) ||
+      (currentTab === 'sin'    && !pm && !HUGO_CPS.has(cpOf(row)) && chofer === 'rueddo') ||
+      (currentTab === 'proc'   && done);
+
+    const matchSearch = !search || dest.includes(search) || t.includes(search) || String(cpOf(row)).includes(search);
+    return matchTab && matchSearch;
+  });
+
+  const filteredFinal = currentTab === 'sin'
+    ? allRows.filter(r => {
+        const done = processedMap[trackingOf(r)]?.downloaded;
+        const matchS = !search || fmtV(r['Destinatario']).toLowerCase().includes(search) || trackingOf(r).includes(search) || String(cpOf(r)).includes(search);
+        return !done && matchS;
+      })
+    : filtered;
+
+  let visible = 0;
+  filteredFinal.forEach(row => {
+    const t      = trackingOf(row);
+    const cp     = cpOf(row);
+    const pm     = processedMap[t];
+    const chofer = pm ? pm.chofer : choferAuto(row);
+    const done   = pm && pm.downloaded;
+    const sel    = selectedSet.has(t);
+
+    const tr = document.createElement('tr');
+    tr.dataset.t = t;
+    if (done) tr.classList.add('done');
+    if (sel)  tr.classList.add('selected');
+
+    const badgeChofer = chofer === 'hugo'
+      ? `<span class="badge badge-hugo">🔵 Hugo</span>`
+      : `<span class="badge badge-rueddo">🟠 Rueddo</span>`;
+    const badgeDone = done
+      ? `<span class="badge badge-proc">✓ Procesado</span>`
+      : `<span class="badge badge-sin">Pendiente</span>`;
+
+    tr.innerHTML = `
+      <td class="td-check"><input type="checkbox" ${sel?'checked':''} data-t="${t}"></td>
+      <td>${t}</td>
+      <td>${fmtV(row['Destinatario'])}</td>
+      <td><strong>${cp || '-'}</strong></td>
+      <td>${fmtV(row['Localidad'])}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${fmtV(row['Dirección'])}">${fmtV(row['Dirección'])}</td>
+      <td>${fmtV(row['Fecha de venta'])}</td>
+      <td style="text-align:center">
+        <input type="radio" name="ch_${t}" value="hugo"   ${chofer==='hugo'  ?'checked':''} data-t="${t}" data-c="hugo">
+      </td>
+      <td style="text-align:center">
+        <input type="radio" name="ch_${t}" value="rueddo" ${chofer==='rueddo'?'checked':''} data-t="${t}" data-c="rueddo">
+      </td>
+      <td>${badgeChofer} ${badgeDone}</td>
+    `;
+
+    tr.querySelectorAll('input[type=radio]').forEach(radio => {
+      radio.addEventListener('change', async function() {
+        const tk = this.dataset.t, ch = this.dataset.c;
+        if (!processedMap[tk]) processedMap[tk] = { chofer: ch, downloaded: false };
+        else processedMap[tk].chofer = ch;
+        await dbSave([{ id: tk, chofer: ch, downloaded: processedMap[tk].downloaded || false }]);
+        renderTable();
+      });
+    });
+
+    const cb = tr.querySelector('input[type=checkbox]');
+    const toggleSel = () => {
+      if (cb.checked) selectedSet.add(t); else selectedSet.delete(t);
+      tr.classList.toggle('selected', cb.checked);
+      updateSelCount();
+    };
+    cb.addEventListener('change', toggleSel);
+    tr.querySelector('td:not(.td-check)') && tr.addEventListener('click', e => {
+      if (e.target.tagName === 'INPUT') return;
+      cb.checked = !cb.checked; toggleSel();
+    });
+
+    tbody.appendChild(tr);
+    visible++;
+  });
+
+  updateCounter(visible);
+  updateSelCount();
+  updateStatus();
+  updateDlBtns();
+}
+
+function updateCounter(v) {
+  const hugo    = allRows.filter(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'hugo' && !processedMap[trackingOf(r)]?.downloaded).length;
+  const rueddo  = allRows.filter(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'rueddo' && !processedMap[trackingOf(r)]?.downloaded).length;
+  document.getElementById('counter').textContent = `${v} visibles · 🔵 Hugo: ${hugo} · 🟠 Rueddo: ${rueddo}`;
+}
+function updateSelCount() {
+  document.getElementById('selCount').textContent = `${selectedSet.size} seleccionados`;
+}
+function updateStatus() {
+  const total = allRows.length;
+  const proc  = allRows.filter(r => processedMap[trackingOf(r)]?.downloaded).length;
+  document.getElementById('hstatus').textContent = `${total} total · ${total-proc} pendientes · ${proc} procesados`;
+}
+function updateDlBtns() {
+  document.getElementById('btnDlHugo').disabled   = !allRows.some(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'hugo' && !processedMap[trackingOf(r)]?.downloaded);
+  document.getElementById('btnDlRueddo').disabled = !allRows.some(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'rueddo' && !processedMap[trackingOf(r)]?.downloaded);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+window.setTab = function(tab) {
+  currentTab = tab;
+  const map = { all:'active-all', hugo:'active-hugo', rueddo:'active-rueddo', sin:'active-sin', proc:'active-all' };
+  ['tabAll','tabHugo','tabRueddo','tabSin','tabProc'].forEach(id => document.getElementById(id).className = 'tab-btn');
+  document.getElementById({all:'tabAll', hugo:'tabHugo', rueddo:'tabRueddo', sin:'tabSin', proc:'tabProc'}[tab]).classList.add(map[tab] || 'active-all');
+  renderTable();
+  fixStickyHeader(); 
+};
+
+// ── Selectores rápidos ────────────────────────────────────────────────────────
+document.getElementById('aSelAll').addEventListener('click', () => { allRows.forEach(r => selectedSet.add(trackingOf(r))); renderTable(); });
+document.getElementById('aSelNone').addEventListener('click', () => { selectedSet.clear(); renderTable(); });
+document.getElementById('aSelHugo').addEventListener('click', () => { selectedSet.clear(); allRows.filter(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'hugo').forEach(r => selectedSet.add(trackingOf(r))); renderTable(); });
+document.getElementById('aSelRueddo').addEventListener('click', () => { selectedSet.clear(); allRows.filter(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'rueddo').forEach(r => selectedSet.add(trackingOf(r))); renderTable(); });
+document.getElementById('aSelNuevos').addEventListener('click', () => { selectedSet.clear(); allRows.filter(r => !processedMap[trackingOf(r)]?.downloaded).forEach(r => selectedSet.add(trackingOf(r))); renderTable(); });
+document.getElementById('btnSelAll').addEventListener('click', () => { allRows.forEach(r => selectedSet.add(trackingOf(r))); renderTable(); });
+document.getElementById('btnSelNone').addEventListener('click', () => { selectedSet.clear(); renderTable(); });
+document.getElementById('chkAll').addEventListener('change', function() { if (this.checked) allRows.forEach(r => selectedSet.add(trackingOf(r))); else selectedSet.clear(); renderTable(); });
+document.getElementById('searchBox').addEventListener('input', function() { searchQuery = this.value.toLowerCase().trim(); renderTable(); });
+
+// ── Cargar Archivo ────────────────────────────────────────────────────────────
+document.getElementById('csvFile').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    
+    let rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+
+    // LÓGICA DE NORMALIZACIÓN MEJORADA
+    allRows = rawRows.map(row => {
+      const cleanRow = {};
+      for (let key in row) {
+        let cleanKey = key.trim().replace(/^\uFEFF/, '');
+        let keyNorm = cleanKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        
+        if (keyNorm.includes('postal') || keyNorm === 'cp') cleanKey = 'Código postal';
+        else if (keyNorm.includes('direccion') || keyNorm.includes('domicilio')) cleanKey = 'Dirección';
+        else if (keyNorm.includes('telefono') || keyNorm.includes('celular')) cleanKey = 'Teléfono de contacto';
+        else if (keyNorm.includes('tracking') || keyNorm.includes('seguimiento') || keyNorm.includes('paquete')) cleanKey = 'Numero de tracking';
+        else if (keyNorm.includes('fecha')) cleanKey = 'Fecha de venta';
+        else if (keyNorm.includes('destinatario') || keyNorm.includes('comprador') || keyNorm.includes('nombre')) cleanKey = 'Destinatario';
+        else if (keyNorm.includes('localidad') || keyNorm.includes('ciudad') || keyNorm.includes('barrio')) cleanKey = 'Localidad';
+
+        cleanRow[cleanKey] = row[key];
+      }
+      return cleanRow;
+    }).filter(r => trackingOf(r) !== '-');
+
+    selectedSet.clear();
+    allRows.filter(r => !processedMap[trackingOf(r)]?.downloaded).forEach(r => selectedSet.add(trackingOf(r)));
+
+    document.getElementById('toolbar').style.display    = 'flex';
+    document.getElementById('selBar').style.display     = 'flex';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('mainTable').style.display  = 'table';
+    
+    renderTable();
+    fixStickyHeader();
+    setTimeout(fixStickyHeader, 150); 
+  } catch (err) {
+    alert("Hubo un error al leer el archivo. Revisá que sea un archivo de Excel (.xlsx) o CSV válido.");
+    console.error(err);
+  }
+});
+
+// ── Fechas ────────────────────────────────────────────────────────────────────
+function normalizeFecha(val) {
+  if (!val || val === '-') return '-';
+  const s = String(val).trim();
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return `${parseInt(iso[3])}/${parseInt(iso[2])}/${iso[1]}`;
+  const dmy = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy) return `${parseInt(dmy[1])}/${parseInt(dmy[2])}/${dmy[3]}`;
+  return s.replace(/-/g, '/');
+}
+
+function inputDateToDisplay(v) {
+  if (!v) return '-';
+  const [y, m, d] = v.split('-');
+  return `${parseInt(d)}/${parseInt(m)}/${y}`;
+}
+
+function displayToInputDate(v) {
+  if (!v || v === '-') return '';
+  const clean = v.replace(/-/g, '/');
+  const parts = clean.split('/');
+  if (parts.length !== 3) return '';
+  if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+  return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+}
+
+// ── Generar Excel ─────────────────────────────────────────────────────────────
+const COLS = ['Numero de tracking','Fecha de venta','Valor declarado','Peso declarado','Destinatario','Teléfono de contacto','Dirección','Localidad','Código postal','Observaciones','Email','4 Total a cobrar','1 Logistica Inversa'];
+
+function buildXLSX(rows, sheetName, dateOverrides) {
+  const ws = XLSX.utils.aoa_to_sheet([COLS]);
+  rows.forEach((r, i) => {
+    const rowNum = i + 2;
+    COLS.forEach((col, colIdx) => {
+      const cellRef = XLSX.utils.encode_cell({ r: rowNum - 1, c: colIdx });
+      let val = r[col] !== undefined ? r[col] : '-';
+      if (col === 'Fecha de venta') {
+        const t = trackingOf(r);
+        val = dateOverrides && dateOverrides[t] ? dateOverrides[t] : normalizeFecha(val);
+        ws[cellRef] = { t: 's', v: val }; return;
+      }
+      if (col === 'Teléfono de contacto') {
+        const num = parseFloat(String(val).replace(/\D/g,''));
+        if (!isNaN(num) && String(val).replace(/\D/g,'').length > 0) { ws[cellRef] = { t: 'n', v: num, z: '0' }; } 
+        else { ws[cellRef] = { t: 's', v: val }; }
+        return;
+      }
+      ws[cellRef] = { t: 's', v: String(val) };
+    });
+  });
+  ws['!ref'] = XLSX.utils.encode_range({ r:0, c:0 }, { r: rows.length, c: COLS.length - 1 });
+  ws['!cols'] = [{wch:20},{wch:13},{wch:13},{wch:13},{wch:26},{wch:17},{wch:32},{wch:18},{wch:11},{wch:28},{wch:28},{wch:14},{wch:16}];
+  COLS.forEach((_, C) => {
+    const cell = ws[XLSX.utils.encode_cell({ r:0, c:C })];
+    if (cell) cell.s = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'1a5c2a'}}, alignment:{horizontal:'center'} };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  return wb;
+}
+
+// ── Modal con editor de fechas ────────────────────────────────────────────────
+let pendingDownload = null, dateOverrides = {};
+
+function showModal(chofer, rows) {
+  document.getElementById('modalTitle').textContent = `Descargar Excel — ${chofer.toUpperCase()}`;
+  document.getElementById('modalBody').innerHTML = `<strong>${rows.length} envíos</strong> → <strong>${chofer.toUpperCase()}_${today()}.xlsx</strong>`;
+  dateOverrides = {};
+  const container = document.getElementById('dateRows');
+  container.innerHTML = '';
+  rows.forEach(r => {
+    const t = trackingOf(r), orig = normalizeFecha(fmtV(r['Fecha de venta']));
+    dateOverrides[t] = orig;
+    const div = document.createElement('div');
+    div.className = 'date-row';
+    div.innerHTML = `<span class="date-row-track">${t}</span><span class="date-row-name">${fmtV(r['Destinatario'])}</span><input type="date" value="${displayToInputDate(orig)}" data-t="${t}">`;
+    div.querySelector('input').addEventListener('change', function() { dateOverrides[this.dataset.t] = inputDateToDisplay(this.value); });
+    container.appendChild(div);
+  });
+  pendingDownload = { chofer, rows };
+  document.getElementById('overlay').classList.add('show');
+}
+
+document.getElementById('modalCancel').addEventListener('click', () => { document.getElementById('overlay').classList.remove('show'); pendingDownload = null; dateOverrides = {}; });
+document.getElementById('modalOk').addEventListener('click', async () => {
+  if (!pendingDownload) return;
+  const { chofer, rows } = pendingDownload;
+  document.getElementById('overlay').classList.remove('show');
+  const wb = buildXLSX(rows, 'Simple', dateOverrides);
+  XLSX.writeFile(wb, `${chofer.toUpperCase()}_${today()}.xlsx`);
+  const entries = rows.map(r => ({ id: trackingOf(r), chofer, downloaded: true }));
+  await dbSave(entries);
+  entries.forEach(e => { processedMap[e.id] = e; });
+  pendingDownload = null; dateOverrides = {}; renderTable();
+});
+function today() { const d = new Date(); return `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear()}`; }
+
+// ── Botones de descarga ───────────────────────────────────────────────────────
+document.getElementById('btnDlHugo').addEventListener('click', () => {
+  const sel = selectedSet.size > 0;
+  const rows = allRows.filter(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'hugo' && !processedMap[trackingOf(r)]?.downloaded && (!sel || selectedSet.has(trackingOf(r))));
+  if (!rows.length) { alert('No hay envíos de Hugo pendientes' + (sel ? ' entre los seleccionados.' : '.')); return; }
+  showModal('hugo', rows);
+});
+document.getElementById('btnDlRueddo').addEventListener('click', () => {
+  const sel = selectedSet.size > 0;
+  const rows = allRows.filter(r => (processedMap[trackingOf(r)]?.chofer || choferAuto(r)) === 'rueddo' && !processedMap[trackingOf(r)]?.downloaded && (!sel || selectedSet.has(trackingOf(r))));
+  if (!rows.length) { alert('No hay envíos de Rueddo pendientes' + (sel ? ' entre los seleccionados.' : '.')); return; }
+  showModal('rueddo', rows);
+});
+
+// ── Limpiar memoria ───────────────────────────────────────────────────────────
+document.getElementById('btnClear').addEventListener('click', async () => {
+  if (!confirm('¿Borrar toda la memoria de envíos procesados?')) return;
+  await dbClear(); processedMap = {}; renderTable();
+});
+
+window.addEventListener('resize', fixStickyHeader);
+window.addEventListener('scroll', fixStickyHeader); 
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+openDB().then(async () => {
+  const entries = await dbGetAll();
+  processedMap = {};
+  entries.forEach(e => { processedMap[e.id] = e; });
+});
+</script>
+</body>
+</html>
