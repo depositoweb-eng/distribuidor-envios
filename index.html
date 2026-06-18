@@ -250,7 +250,10 @@ function fmtV(v) {
   return (s === '-' || s === '') ? '-' : s;
 }
 
-function trackingOf(r) { return fmtV(r['Numero de tracking']); }
+function trackingOf(r) { 
+  const raw = fmtV(r['Numero de tracking']);
+  return raw === '-' ? '-' : raw.replace(/^0+/, '');
+}
 function cpOf(r) { return parseInt(fmtV(r['Código postal']).replace(/\D/g, '')) || 0; }
 function choferAuto(r) { return HUGO_CPS.has(cpOf(r)) ? 'hugo' : 'rueddo'; }
 
