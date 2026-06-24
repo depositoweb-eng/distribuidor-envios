@@ -96,6 +96,78 @@ tbody tr.row-missing:hover { background: #ffe0b2; }
   cursor: pointer; font-weight: bold; white-space: nowrap;
 }
 .btn-revert:hover { background: #fbd0d0; }
+.hbtn-print { background: #e8eaf6; color: #283593; }
+.hbtn-print:hover { background: #c5cae9; }
+
+/* Modal etiquetas zebra */
+#overlayPrint { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center; }
+#overlayPrint.show { display:flex; }
+#modalPrint {
+  background:white; border-radius:10px; padding:20px 24px;
+  width:92%; max-width:700px; max-height:90vh;
+  display:flex; flex-direction:column; gap:12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+#modalPrint h2 { font-size:15px; color:#283593; }
+#labelPreview {
+  flex:1; overflow-y:auto; display:flex; flex-wrap:wrap;
+  gap:10px; padding:10px; background:#f5f5f5;
+  border:1px solid #ddd; border-radius:6px; min-height:200px;
+}
+/* Etiqueta individual preview */
+.zlabel {
+  width:300px; height:200px; background:white;
+  border:2px solid #333; border-radius:6px;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:16px 12px; text-align:center; gap:16px;
+  font-family: Arial Black, Arial, sans-serif;
+  page-break-inside: avoid;
+}
+.zlabel-type {
+  font-size:80px; font-weight:900; letter-spacing:4px;
+  line-height:1; text-transform:uppercase; color:#000;
+}
+.zlabel-name {
+  font-size:20px; font-weight:900; color:#000;
+  line-height:1.2; word-break:break-word;
+  text-transform:uppercase; letter-spacing:1px;
+}
+.modal-print-btns { display:flex; gap:10px; justify-content:flex-end; }
+.modal-print-btns button { padding:8px 18px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; }
+#btnCancelPrint { background:#eee; color:#333; }
+#btnDoPrint { background:#283593; color:white; }
+
+@media print {
+  * { margin:0 !important; padding:0 !important; box-sizing:border-box !important; }
+  body > *:not(#printArea) { display:none !important; }
+  #printArea {
+    display:block !important;
+    width:100%;
+  }
+  .zlabel {
+    width:100vw; height:100vh;
+    border:none;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:20mm; padding:10mm;
+    page-break-after: always;
+    break-after: page;
+  }
+  .zlabel-type {
+    font-size:80pt; font-weight:900;
+    letter-spacing:4pt; line-height:1; color:#000;
+  }
+  .zlabel-name {
+    font-size:28pt; font-weight:900;
+    letter-spacing:1pt; line-height:1.2; color:#000;
+    text-transform:uppercase;
+  }
+  .zlabel:last-child { page-break-after: avoid; break-after: avoid; }
+}
+.badge-noenv  { background: #ede7f6; color: #4527a0; }
+tbody tr.row-noenv { background: #f3e5f5; }
+tbody tr.row-noenv:hover { background: #e1bee7; }
 
 /* Selector rápido */
 .sel-bar {
@@ -152,6 +224,7 @@ tbody tr.row-missing:hover { background: #ffe0b2; }
   <button class="hbtn" id="btnSelNone">☐ Ninguno</button>
   <button class="hbtn hbtn-hugo"   id="btnDlHugo"   disabled>⬇ Excel HUGO</button>
   <button class="hbtn hbtn-rueddo" id="btnDlRueddo" disabled>⬇ Excel RUEDDO</button>
+  <button class="hbtn hbtn-print" id="btnPrintLabels">🖨️ Etiquetas No enviar</button>
   <button class="hbtn" id="btnClear" style="background:#fde8e8;color:#c0392b">🗑 Limpiar memoria</button>
   <span id="hstatus">Cargá un archivo para comenzar</span>
 </div>
@@ -161,6 +234,7 @@ tbody tr.row-missing:hover { background: #ffe0b2; }
   <button class="tab-btn" id="tabHugo"   onclick="setTab('hugo')">🔵 Hugo</button>
   <button class="tab-btn" id="tabRueddo" onclick="setTab('rueddo')">🟠 Rueddo</button>
   <button class="tab-btn" id="tabSin"    onclick="setTab('sin')">⚫ Sin asignar</button>
+  <button class="tab-btn" id="tabNoenv"  onclick="setTab('noenv')">🚫 No enviar</button>
   <button class="tab-btn" id="tabProc"   onclick="setTab('proc')">✓ Procesados</button>
   <input type="text" id="searchBox" placeholder="Buscar nombre o tracking…">
   <span id="counter"></span>
@@ -190,6 +264,7 @@ tbody tr.row-missing:hover { background: #ffe0b2; }
         <th>Fecha</th>
         <th class="th-hugo">HUGO</th>
         <th class="th-rueddo">RUEDDO</th>
+        <th style="background:#4527a0">NO ENV.</th>
         <th>Estado</th>
       </tr>
     </thead>
@@ -223,6 +298,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 </script>
 
 <!-- Modal confirmación + editor de fechas -->
+<!-- Modal etiquetas Zebra -->
+<div id="overlayPrint">
+  <div id="modalPrint">
+    <h2>🖨️ Etiquetas para impresora — No enviar</h2>
+    <div id="labelPreview"></div>
+    <div class="modal-print-btns">
+      <button id="btnRevertPrint" style="background:#fde8e8;color:#c0392b;padding:8px 14px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;margin-right:auto">↩ Revertir impresas</button>
+      <button id="btnCancelPrint">Cancelar</button>
+      <button id="btnDoPrint">🖨️ Imprimir pendientes</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea" style="display:none"></div>
+
 <div id="overlay">
   <div id="modal">
     <h2 id="modalTitle"></h2>
@@ -254,8 +344,17 @@ function trackingOf(r) {
   const raw = fmtV(r['Numero de tracking']);
   return raw === '-' ? '-' : raw.replace(/^0+/, '');
 }
-function cpOf(r) { return parseInt(fmtV(r['Código postal']).replace(/\D/g, '')) || 0; }
-function choferAuto(r) { return HUGO_CPS.has(cpOf(r)) ? 'hugo' : 'rueddo'; }
+function cpOf(r) { return parseInt(String(r['Código postal']||'').trim()) || 0; }
+function choferAuto(r) {
+  const cp  = cpOf(r);
+  if (cp === 9989) return 'noenv';
+  // Si la dirección o localidad menciona VOLTA, TP o WEB → no enviar
+  const dir  = (r['Dirección']  || '').toUpperCase();
+  const loc  = (r['Localidad']  || '').toUpperCase();
+  const combined = dir + ' ' + loc;
+  if (combined.includes('VOLTA') || /\bTP\b/.test(combined) || combined.includes('RETIRO')) return 'noenv';
+  return HUGO_CPS.has(cp) ? 'hugo' : 'rueddo';
+}
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 let allRows      = [];
@@ -322,6 +421,7 @@ function dbClear() {
   });
 }
 
+
 // ── Render tabla ──────────────────────────────────────────────────────────────
 function renderTable() {
   const tbody = document.getElementById('tableBody');
@@ -339,6 +439,7 @@ function renderTable() {
       currentTab === 'all'    ||
       (currentTab === 'hugo'   && chofer === 'hugo'   && !done) ||
       (currentTab === 'rueddo' && chofer === 'rueddo' && !done) ||
+      (currentTab === 'noenv'  && chofer === 'noenv') ||
       (currentTab === 'sin'    && !pm && !HUGO_CPS.has(cpOf(row)) && chofer === 'rueddo') ||
       (currentTab === 'proc'   && done);
 
@@ -378,7 +479,10 @@ function renderTable() {
 
     const badgeChofer = chofer === 'hugo'
       ? `<span class="badge badge-hugo">🔵 Hugo</span>`
-      : `<span class="badge badge-rueddo">🟠 Rueddo</span>`;
+      : chofer === 'noenv'
+        ? `<span class="badge badge-noenv">🚫 No enviar</span>`
+        : `<span class="badge badge-rueddo">🟠 Rueddo</span>`;
+    if (chofer === 'noenv') tr.classList.add('row-noenv');
     const warnBadge = hasWarn
       ? `<span class="badge badge-warn" title="${tel==='-'?'Sin teléfono':''}${dir==='-'?' Sin dirección':''}">⚠️</span> `
       : '';
@@ -400,6 +504,9 @@ function renderTable() {
       </td>
       <td style="text-align:center">
         <input type="radio" name="ch_${t}" value="rueddo" ${chofer==='rueddo'?'checked':''} data-t="${t}" data-c="rueddo">
+      </td>
+      <td style="text-align:center">
+        <input type="radio" name="ch_${t}" value="noenv" ${chofer==='noenv'?'checked':''} data-t="${t}" data-c="noenv">
       </td>
       <td>${badgeChofer} ${badgeDone}</td>
     `;
@@ -766,6 +873,106 @@ document.getElementById('btnClear').addEventListener('click', async () => {
 
 window.addEventListener('resize', fixStickyHeader);
 window.addEventListener('scroll', fixStickyHeader); 
+
+// ── Etiquetas Zebra ───────────────────────────────────────────────────────────
+function detectTipo(row) {
+  const dir  = (row['Dirección']  || '').toUpperCase();
+  const dest = (row['Destinatario'] || '').toUpperCase();
+  const combined = dir + ' ' + dest;
+  if (combined.includes('VOLTA'))  return 'VOLTA';
+  if (/\bTP\b/.test(combined))    return 'TP';
+  if (combined.includes('WEB'))    return 'WEB';
+  return 'NO ENV';
+}
+
+function buildLabelHTML(row) {
+  const tipo = detectTipo(row);
+  const name = (row['Destinatario'] || '-').trim().toUpperCase();
+  const cls  = tipo === 'VOLTA' ? 'volta' : tipo === 'TP' ? 'tp' : tipo === 'WEB' ? 'web' : 'noenv';
+  return `
+    <div class="zlabel">
+      <div class="zlabel-type ${cls}">${tipo}</div>
+      <div class="zlabel-name">${name}</div>
+    </div>`;
+}
+
+document.getElementById('btnPrintLabels').addEventListener('click', () => {
+  if (!allRows.length) { alert('Cargá un CSV primero.'); return; }
+  const noenvRows = allRows.filter(r => {
+    const ch = processedMap[trackingOf(r)]?.chofer || choferAuto(r);
+    return ch === 'noenv';
+  });
+  if (!noenvRows.length) { alert('No hay pedidos en "No enviar".'); return; }
+
+  const preview = document.getElementById('labelPreview');
+  preview.innerHTML = '';
+
+  // Pendientes primero, luego impresas en gris
+  const pendientes = noenvRows.filter(r => !processedMap[trackingOf(r)]?.downloaded);
+  const impresas   = noenvRows.filter(r =>  processedMap[trackingOf(r)]?.downloaded);
+
+  pendientes.forEach(r => {
+    const div = document.createElement('div');
+    div.innerHTML = buildLabelHTML(r);
+    preview.appendChild(div.firstElementChild);
+  });
+
+  if (impresas.length) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'width:100%;padding:8px 4px;font-size:12px;color:#999;font-weight:bold;border-top:1px dashed #ccc;margin-top:4px';
+    sep.textContent = `✓ Ya impresas (${impresas.length})`;
+    preview.appendChild(sep);
+    impresas.forEach(r => {
+      const div = document.createElement('div');
+      div.innerHTML = buildLabelHTML(r);
+      const lbl = div.firstElementChild;
+      lbl.style.cssText += 'opacity:0.3;filter:grayscale(1);pointer-events:none;';
+      preview.appendChild(lbl);
+    });
+  }
+
+  document.getElementById('overlayPrint').classList.add('show');
+});
+
+document.getElementById('btnCancelPrint').addEventListener('click', () => {
+  document.getElementById('overlayPrint').classList.remove('show');
+});
+
+document.getElementById('btnRevertPrint').addEventListener('click', async () => {
+  if (!confirm('¿Marcar todas las etiquetas impresas como pendientes?')) return;
+  const toRevert = allRows.filter(r => {
+    const t = trackingOf(r);
+    return processedMap[t]?.chofer === 'noenv' && processedMap[t]?.downloaded;
+  });
+  if (!toRevert.length) { alert('No hay etiquetas impresas para revertir.'); return; }
+  const entries = toRevert.map(r => ({ id: trackingOf(r), chofer: 'noenv', downloaded: false }));
+  await dbSave(entries);
+  entries.forEach(e => { processedMap[e.id] = e; });
+  // Reabrir modal actualizado
+  document.getElementById('btnPrintLabels').click();
+});
+
+document.getElementById('btnDoPrint').addEventListener('click', async () => {
+  const noenvRows = allRows.filter(r => {
+    const ch = processedMap[trackingOf(r)]?.chofer || choferAuto(r);
+    const done = processedMap[trackingOf(r)]?.downloaded;
+    return ch === 'noenv' && !done;
+  });
+  if (!noenvRows.length) { alert('Todas las etiquetas ya fueron impresas.'); return; }
+
+  const printArea = document.getElementById('printArea');
+  printArea.innerHTML = noenvRows.map(buildLabelHTML).join('');
+  printArea.style.display = 'block';
+  document.getElementById('overlayPrint').classList.remove('show');
+  window.print();
+  setTimeout(() => { printArea.style.display = 'none'; }, 500);
+
+  // Marcar como procesados
+  const entries = noenvRows.map(r => ({ id: trackingOf(r), chofer: 'noenv', downloaded: true }));
+  await dbSave(entries);
+  entries.forEach(e => { processedMap[e.id] = e; });
+  renderTable();
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 openDB().then(async () => {
