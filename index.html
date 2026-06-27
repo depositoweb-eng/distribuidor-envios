@@ -116,22 +116,23 @@ tbody tr.row-missing:hover { background: #ffe0b2; }
 }
 /* Etiqueta individual preview */
 .zlabel {
-  width:300px; height:200px; background:white;
+  width:240px; height:155px; background:white;
   border:2px solid #333; border-radius:6px;
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
-  padding:16px 12px; text-align:center; gap:16px;
+  padding:12px 10px; text-align:center; gap:10px;
   font-family: Arial Black, Arial, sans-serif;
   page-break-inside: avoid;
 }
 .zlabel-type {
-  font-size:80px; font-weight:900; letter-spacing:4px;
+  font-size:58px; font-weight:900; letter-spacing:3px;
   line-height:1; text-transform:uppercase; color:#000;
 }
 .zlabel-name {
-  font-size:20px; font-weight:900; color:#000;
+  font-size:15px; font-weight:900; color:#000;
   line-height:1.2; word-break:break-word;
-  text-transform:uppercase; letter-spacing:1px;
+  text-transform:uppercase; letter-spacing:0.5px;
+  max-width:220px;
 }
 .modal-print-btns { display:flex; gap:10px; justify-content:flex-end; }
 .modal-print-btns button { padding:8px 18px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; }
@@ -141,27 +142,25 @@ tbody tr.row-missing:hover { background: #ffe0b2; }
 @media print {
   * { margin:0 !important; padding:0 !important; box-sizing:border-box !important; }
   body > *:not(#printArea) { display:none !important; }
-  #printArea {
-    display:block !important;
-    width:100%;
-  }
+  #printArea { display:block !important; width:100%; }
   .zlabel {
     width:100vw; height:100vh;
     border:none;
     display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    gap:20mm; padding:10mm;
+    gap:12mm; padding:8mm;
     page-break-after: always;
     break-after: page;
   }
   .zlabel-type {
-    font-size:80pt; font-weight:900;
-    letter-spacing:4pt; line-height:1; color:#000;
+    font-size:58pt; font-weight:900;
+    letter-spacing:3pt; line-height:1; color:#000;
   }
   .zlabel-name {
-    font-size:28pt; font-weight:900;
+    font-size:22pt; font-weight:900;
     letter-spacing:1pt; line-height:1.2; color:#000;
     text-transform:uppercase;
+    max-width:90vw; word-break:break-word;
   }
   .zlabel:last-child { page-break-after: avoid; break-after: avoid; }
 }
@@ -224,6 +223,7 @@ tbody tr.row-noenv:hover { background: #e1bee7; }
   <button class="hbtn" id="btnSelNone">☐ Ninguno</button>
   <button class="hbtn hbtn-hugo"   id="btnDlHugo"   disabled>⬇ Excel HUGO</button>
   <button class="hbtn hbtn-rueddo" id="btnDlRueddo" disabled>⬇ Excel RUEDDO</button>
+  <button class="hbtn" id="btnPrepararTodo" style="background:#fff9c4;color:#5d4037;font-size:13px">⚡ Preparar todo</button>
   <button class="hbtn hbtn-print" id="btnPrintLabels">🖨️ Etiquetas No enviar</button>
   <button class="hbtn" id="btnClear" style="background:#fde8e8;color:#c0392b">🗑 Limpiar memoria</button>
   <span id="hstatus">Cargá un archivo para comenzar</span>
@@ -345,14 +345,21 @@ function trackingOf(r) {
   return raw === '-' ? '-' : raw.replace(/^0+/, '');
 }
 function cpOf(r) { return parseInt(String(r['Código postal']||'').trim()) || 0; }
+function esWeb(r) {
+  const dir  = (r['Dirección']  || '').toUpperCase();
+  const loc  = (r['Localidad']  || '').toUpperCase();
+  const dest = (r['Destinatario'] || '').toUpperCase();
+  return (dir + ' ' + loc + ' ' + dest).includes('WEB');
+}
+
 function choferAuto(r) {
   const cp  = cpOf(r);
   if (cp === 9989) return 'noenv';
-  // Si la dirección o localidad menciona VOLTA, TP o WEB → no enviar
   const dir  = (r['Dirección']  || '').toUpperCase();
   const loc  = (r['Localidad']  || '').toUpperCase();
   const combined = dir + ' ' + loc;
   if (combined.includes('VOLTA') || /\bTP\b/.test(combined) || combined.includes('RETIRO')) return 'noenv';
+  if (esWeb(r)) return 'noenv';
   return HUGO_CPS.has(cp) ? 'hugo' : 'rueddo';
 }
 
@@ -679,6 +686,9 @@ document.getElementById('csvFile').addEventListener('change', async function(e) 
       return cleanRow;
     }).filter(r => trackingOf(r) !== '-');
 
+    // WEB → solo asignar noenv, NO marcar como procesado (necesitan etiqueta)
+    // choferAuto ya los detecta como noenv, no hace falta guardar nada extra
+
     selectedSet.clear();
     allRows.filter(r => !processedMap[trackingOf(r)]?.downloaded).forEach(r => selectedSet.add(trackingOf(r)));
 
@@ -842,12 +852,27 @@ document.getElementById('modalOk').addEventListener('click', async () => {
   if (!pendingDownload) return;
   const { chofer, rows } = pendingDownload;
   document.getElementById('overlay').classList.remove('show');
+  // Fecha más frecuente de las editadas en el modal
+  const fechasModal = rows.map(r => dateOverrides[trackingOf(r)] || normalizeFecha(fmtV(r['Fecha de venta']))).filter(f => f && f !== '-');
+  const freq = {};
+  fechasModal.forEach(f => { freq[f] = (freq[f]||0)+1; });
+  const fechaMasComun = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || today();
+  const fechaArchivo = fechaMasComun.split('/').reverse().join('-'); // dd/mm/yyyy → yyyy-mm-dd → invertir a dd-mm-yyyy
+  // Formato dd-mm-yyyy para el nombre
+  const partes = fechaMasComun.split('/');
+  const nombreFecha = partes.length === 3 ? `${partes[0].padStart(2,'0')}-${partes[1].padStart(2,'0')}-${partes[2]}` : today();
+
   const wb = buildXLSX(rows, 'Simple', dateOverrides);
-  XLSX.writeFile(wb, `${chofer.toUpperCase()}_${today()}.xlsx`);
+  XLSX.writeFile(wb, `${chofer.toUpperCase()}_${nombreFecha}.xlsx`);
   const entries = rows.map(r => ({ id: trackingOf(r), chofer, downloaded: true }));
   await dbSave(entries);
   entries.forEach(e => { processedMap[e.id] = e; });
   pendingDownload = null; dateOverrides = {}; renderTable();
+
+  // Si estamos en "Preparar todo", abrir el siguiente modal automáticamente
+  if (window._prepararCola && window._prepararCola.length) {
+    setTimeout(_abrirSiguienteModal, 400);
+  }
 });
 function today() { const d = new Date(); return `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear()}`; }
 
@@ -904,31 +929,35 @@ document.getElementById('btnPrintLabels').addEventListener('click', () => {
   });
   if (!noenvRows.length) { alert('No hay pedidos en "No enviar".'); return; }
 
-  const preview = document.getElementById('labelPreview');
-  preview.innerHTML = '';
-
-  // Pendientes primero, luego impresas en gris
   const pendientes = noenvRows.filter(r => !processedMap[trackingOf(r)]?.downloaded);
   const impresas   = noenvRows.filter(r =>  processedMap[trackingOf(r)]?.downloaded);
 
-  pendientes.forEach(r => {
-    const div = document.createElement('div');
-    div.innerHTML = buildLabelHTML(r);
-    preview.appendChild(div.firstElementChild);
-  });
+  // Si no hay pendientes, avisar directamente
+  if (!pendientes.length) {
+    alert(`Todas las etiquetas ya fueron impresas (${impresas.length}). Usá "↩ Revertir impresas" en el modal si necesitás reimprimir.`);
+    // Abrir igual para poder revertir
+  }
 
-  if (impresas.length) {
-    const sep = document.createElement('div');
-    sep.style.cssText = 'width:100%;padding:8px 4px;font-size:12px;color:#999;font-weight:bold;border-top:1px dashed #ccc;margin-top:4px';
-    sep.textContent = `✓ Ya impresas (${impresas.length})`;
-    preview.appendChild(sep);
-    impresas.forEach(r => {
+  const preview = document.getElementById('labelPreview');
+  preview.innerHTML = '';
+
+  // Solo mostrar pendientes
+  if (pendientes.length) {
+    pendientes.forEach(r => {
       const div = document.createElement('div');
       div.innerHTML = buildLabelHTML(r);
-      const lbl = div.firstElementChild;
-      lbl.style.cssText += 'opacity:0.3;filter:grayscale(1);pointer-events:none;';
-      preview.appendChild(lbl);
+      preview.appendChild(div.firstElementChild);
     });
+  } else {
+    preview.innerHTML = `<div style="width:100%;text-align:center;padding:30px;color:#aaa;font-size:13px">✓ Todas impresas. Usá "↩ Revertir impresas" para reimprimir.</div>`;
+  }
+
+  // Mostrar cuántas ya están impresas como info, sin las etiquetas grises
+  if (impresas.length) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'width:100%;padding:6px 8px;font-size:11px;color:#aaa;border-top:1px dashed #ddd;margin-top:4px;text-align:right';
+    sep.textContent = `✓ ${impresas.length} ya impresa${impresas.length > 1 ? 's' : ''}`;
+    preview.appendChild(sep);
   }
 
   document.getElementById('overlayPrint').classList.add('show');
@@ -973,6 +1002,52 @@ document.getElementById('btnDoPrint').addEventListener('click', async () => {
   entries.forEach(e => { processedMap[e.id] = e; });
   renderTable();
 });
+
+// ── Preparar todo ────────────────────────────────────────────────────────────
+document.getElementById('btnPrepararTodo').addEventListener('click', () => {
+  if (!allRows.length) { alert('Cargá un CSV primero.'); return; }
+
+  // Filas pendientes de Hugo y Rueddo (excluye noenv y procesados)
+  const hugoRows   = allRows.filter(r => {
+    const t = trackingOf(r);
+    const ch = processedMap[t]?.chofer || choferAuto(r);
+    return ch === 'hugo' && !processedMap[t]?.downloaded;
+  });
+  const rueddoRows = allRows.filter(r => {
+    const t = trackingOf(r);
+    const ch = processedMap[t]?.chofer || choferAuto(r);
+    return ch === 'rueddo' && !processedMap[t]?.downloaded;
+  });
+
+  if (!hugoRows.length && !rueddoRows.length) {
+    alert('No hay envíos pendientes para preparar. Todos ya fueron procesados.');
+    return;
+  }
+
+  // Mostrar resumen antes de arrancar
+  const resumen = [
+    hugoRows.length   ? '🔵 Hugo: ' + hugoRows.length + ' envíos'   : null,
+    rueddoRows.length ? '🟠 Rueddo: ' + rueddoRows.length + ' envíos' : null,
+  ].filter(Boolean).join('\n');
+
+  if (!confirm('⚡ Preparar todo\n\n' + resumen + '\n\nSe van a abrir los modales de fecha uno por uno.\n¿Arrancamos?')) return;
+
+  // Guardar qué viene después para encadenar
+  window._prepararCola = [];
+  if (hugoRows.length)   window._prepararCola.push({ chofer: 'hugo',   rows: hugoRows });
+  if (rueddoRows.length) window._prepararCola.push({ chofer: 'rueddo', rows: rueddoRows });
+
+  // Arrancar con el primero
+  _abrirSiguienteModal();
+});
+
+function _abrirSiguienteModal() {
+  if (!window._prepararCola || !window._prepararCola.length) return;
+  const next = window._prepararCola.shift();
+  showModal(next.chofer, next.rows);
+  // Marcar que estamos en modo "preparar todo" para encadenar al confirmar
+  window._enPrepararTodo = true;
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 openDB().then(async () => {
